@@ -19,19 +19,17 @@ class FirestoreRepository {
 
     // --- STUDENT MANAGEMENT ---
 
-    // Fetch all active students for the Card Stack
     suspend fun getActiveStudents(): List<Student> {
         return try {
             val snapshot = studentsRef
                 .whereEqualTo("is_active", true)
-                .orderBy("name") // Alphabetical order
+                .orderBy("name")
                 .get()
                 .await()
 
-            // Convert documents to Student objects
             snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Student::class.java)?.apply {
-                    id = doc.id // Attach the document ID to the object
+                    id = doc.id
                 }
             }
         } catch (e: Exception) {
@@ -40,13 +38,12 @@ class FirestoreRepository {
         }
     }
 
-    // Add a new student (or edit existing)
     suspend fun saveStudent(student: Student): Boolean {
         return try {
             val docRef = if (student.id.isEmpty()) {
-                studentsRef.document() // Create new ID
+                studentsRef.document()
             } else {
-                studentsRef.document(student.id) // Update existing
+                studentsRef.document(student.id)
             }
             docRef.set(student).await()
             true
@@ -58,13 +55,11 @@ class FirestoreRepository {
 
     // --- ATTENDANCE LOGIC ---
 
-    // Get today's ID (YYYY-MM-DD) to enforce "Once a day" rule
     fun getTodayId(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return sdf.format(Date())
     }
 
-    // Check if attendance is already started/done for today
     suspend fun getTodayLog(): DailyLog? {
         val todayId = getTodayId()
         return try {
@@ -79,8 +74,6 @@ class FirestoreRepository {
         }
     }
 
-    // Save the attendance stack results
-    // We use SetOptions.merge() so we don't overwrite the 'focus' or other fields if they exist
     suspend fun saveAttendanceBatch(
         attendanceMap: Map<String, AttendanceStatus>,
         focusOfTheDay: String
@@ -91,17 +84,16 @@ class FirestoreRepository {
             "date" to Date(),
             "attendance" to attendanceMap,
             "focus" to focusOfTheDay,
-            "finalized" to false // Will be finalized by the 5 PM worker later
         )
 
         try {
             logsRef.document(todayId)
-                .set(data, SetOptions.merge()) // Updates existing or creates new
+                .set(data, SetOptions.merge())
                 .await()
             Log.d("FirestoreRepo", "Attendance saved successfully for $todayId")
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error saving attendance", e)
-            throw e // Rethrow to handle in UI (show error toast)
+            throw e
         }
     }
 
@@ -116,7 +108,6 @@ class FirestoreRepository {
         }
     }
 
-    // Get a specific log (already exists as getTodayLog, but let's make it generic)
     suspend fun getLogByDate(dateId: String): DailyLog? {
         return try {
             val doc = logsRef.document(dateId).get().await()
@@ -126,10 +117,32 @@ class FirestoreRepository {
         }
     }
 
-    // Update a specific student's status in a past log
     suspend fun updateStudentStatus(dateId: String, studentId: String, status: AttendanceStatus) {
         logsRef.document(dateId)
-            .update("attendance.$studentId", status) // Updates just that one field in the map
+            .update("attendance.$studentId", status)
             .await()
+    }
+
+    suspend fun finalizeLog(dateId: String) {
+        try {
+            logsRef.document(dateId)
+                .update("finalized", true)
+                .await()
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error finalizing log", e)
+            throw e
+        }
+    }
+
+    // --- NEW FUNCTION ---
+    suspend fun updateFocus(dateId: String, newFocus: String) {
+        try {
+            logsRef.document(dateId)
+                .update("focus", newFocus)
+                .await()
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating focus", e)
+            throw e
+        }
     }
 }

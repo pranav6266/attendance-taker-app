@@ -5,7 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.firebase.FirebaseApp
 import com.pranav.attendencetaker.ui.navigation.Screen
 import com.pranav.attendencetaker.ui.screens.details.DayDetailScreen
@@ -17,19 +21,14 @@ import com.pranav.attendencetaker.ui.theme.AttendenceTakerTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this) // Force init (keeps GoogleApiManager happy)
+        FirebaseApp.initializeApp(this)
         enableEdgeToEdge()
-
-        // --- TEMPORARY: ADD DUMMY DATA BUTTON LOGIC ---
-        // Uncomment this ONLY ONCE, run the app, then comment it out again.
-//         seedDummyData()
-        // ----------------------------------------------
 
         setContent {
             AttendenceTakerTheme {
-                val navController = androidx.navigation.compose.rememberNavController()
+                val navController = rememberNavController()
 
-                androidx.navigation.compose.NavHost(
+                NavHost(
                     navController = navController,
                     startDestination = Screen.Home.route
                 ) {
@@ -38,8 +37,8 @@ class MainActivity : ComponentActivity() {
                         val viewModel: HomeViewModel = viewModel()
                         HomeScreen(
                             viewModel = viewModel,
-                            // You need to update HomeScreen to accept this callback
-                            onNavigateToStats = { navController.navigate(Screen.Stats.route) }
+                            onNavigateToStats = { navController.navigate(Screen.Stats.route) },
+                            navController = navController // <--- PASSED HERE
                         )
                     }
 
@@ -51,9 +50,8 @@ class MainActivity : ComponentActivity() {
                     // 3. DAY DETAIL SCREEN
                     composable(
                         route = Screen.DayDetail.route,
-                        // This allows passing the "dateId" in the URL
-                        arguments = listOf(androidx.navigation.navArgument("dateId") {
-                            type = androidx.navigation.NavType.StringType
+                        arguments = listOf(navArgument("dateId") {
+                            type = NavType.StringType
                         })
                     ) { backStackEntry ->
                         val dateId = backStackEntry.arguments?.getString("dateId") ?: ""
