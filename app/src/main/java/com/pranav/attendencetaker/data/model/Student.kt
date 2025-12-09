@@ -13,25 +13,30 @@ data class Student(
     val name: String = "",
     val age: Int = 0,
 
-    // CHANGE 1: val -> var, remove 'get:'
-    @PropertyName("phone_number")
+    // phone_number <-> phoneNumber
+    @get:PropertyName("phone_number")
+    @set:PropertyName("phone_number")
     var phoneNumber: String = "",
 
     var belt: String = "White",
 
-    // CHANGE 2: val -> var, remove 'get:'
-    @PropertyName("is_active")
+    // is_active <-> isActive
+    @get:PropertyName("is_active")
+    @set:PropertyName("is_active")
     var isActive: Boolean = true,
 
-    // CHANGE 3: val -> var, remove 'get:'
-    @PropertyName("total_classes")
+    // total_classes <-> totalClasses
+    @get:PropertyName("total_classes")
+    @set:PropertyName("total_classes")
     var totalClasses: Int = 0,
 
-    // CHANGE 4: val -> var, remove 'get:' -- THIS FIXES YOUR STREAK BUG
-    @PropertyName("current_streak")
+    // current_streak <-> currentStreak  (streak shown in UI)
+    @get:PropertyName("current_streak")
+    @set:PropertyName("current_streak")
     var currentStreak: Int = 0,
 
-    // CHANGE 5: val -> var, remove 'get:'
-    @PropertyName("last_attended_date")
+    // last_attended_date <-> lastAttendedDate
+    @get:PropertyName("last_attended_date")
+    @set:PropertyName("last_attended_date")
     var lastAttendedDate: Long = 0
 )
