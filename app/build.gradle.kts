@@ -61,6 +61,19 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.play.services.auth)
+
+    // Image Loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    // WorkManager (Notifications)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // DataStore (Settings/Theme persistence)
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Firebase Storage (For uploading custom profile pics)
+    implementation("com.google.firebase:firebase-storage-ktx:21.0.2")
+
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation(platform("com.google.firebase:firebase-bom:34.6.0"))

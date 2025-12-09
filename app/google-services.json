@@ -12,7 +12,20 @@
           "package_name": "com.pranav.attendecetaker"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "205098330268-q1t8mo91it0cfj356iusc2onvg6r0pnf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pranav.attendecetaker",
+            "certificate_hash": "a08f2fe7ef260f1803cd4d426dd2b6b903f59340"
+          }
+        },
+        {
+          "client_id": "205098330268-j2qafeggfcpr6h23n2kgddtomee2d32j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBIQyjGRIK7CJlHBkYnKZNGkUbuNUEBfI8"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "205098330268-j2qafeggfcpr6h23n2kgddtomee2d32j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

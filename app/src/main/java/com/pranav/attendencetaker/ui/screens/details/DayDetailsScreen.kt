@@ -41,6 +41,8 @@ import com.pranav.attendencetaker.ui.theme.DuoBlue
 import com.pranav.attendencetaker.ui.theme.DuoGreen
 import com.pranav.attendencetaker.ui.theme.DuoRed
 import com.pranav.attendencetaker.ui.theme.DuoYellow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
 @Composable
@@ -49,7 +51,7 @@ fun DayDetailScreen(
     navController: NavController
 ) {
     val context = LocalContext.current
-    val focusManager = LocalFocusManager.current // <--- 1. Get Focus Manager
+    val focusManager = LocalFocusManager.current
     val repo = remember { FirestoreRepository() }
     val scope = rememberCoroutineScope()
 
@@ -63,7 +65,22 @@ fun DayDetailScreen(
         val fetchedLog = repo.getLogByDate(dateId)
         log = fetchedLog
         focusText = fetchedLog?.focus ?: ""
-        students = repo.getActiveStudents()
+
+        // 1. Get currently active students (The base roster)
+        val activeStudents = repo.getActiveStudents()
+
+        // 2. LOGIC FIX: Find students who are in the log but NOT in the active list (Deleted/Archived)
+        val logStudentIds = fetchedLog?.attendance?.keys ?: emptySet()
+        val activeIds = activeStudents.map { it.id }.toSet()
+        val missingIds = logStudentIds - activeIds
+
+        // 3. Fetch details for these "missing" students (so they appear in history)
+        val archivedStudents = missingIds.map { id ->
+            async { repo.getStudentById(id) }
+        }.awaitAll().filterNotNull()
+
+        // 4. Combine active list + archived students involved in this specific class
+        students = (activeStudents + archivedStudents).sortedBy { it.name }
     }
 
     fun onConfirmFinalize() {
@@ -81,7 +98,6 @@ fun DayDetailScreen(
     }
 
     fun saveFocus() {
-        // Clear focus when saving
         focusManager.clearFocus()
         scope.launch {
             try {
@@ -99,10 +115,10 @@ fun DayDetailScreen(
         val lateCount = log?.attendance?.values?.count { it == AttendanceStatus.LATE } ?: 0
         AlertDialog(
             onDismissRequest = { showFinalizeDialog = false },
-            title = { Text("Finalize Class?", fontWeight = FontWeight.Bold) },
+            title = { Text("Finalize Class?", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
-                    Text("This will lock the attendance record.")
+                    Text("This will lock the attendance record.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (lateCount > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Warning: $lateCount student(s) marked LATE.", color = DuoRed, fontWeight = FontWeight.Bold)
@@ -117,12 +133,13 @@ fun DayDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showFinalizeDialog = false }) { Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.Bold) }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface // Dynamic Dark Mode Support
         )
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background, // Dynamic Dark Mode Support
         topBar = {
             Row(
                 modifier = Modifier
@@ -138,8 +155,8 @@ fun DayDetailScreen(
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text("ATTENDANCE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.LightGray)
-                    Text(dateId, fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color(0xFF4B4B4B))
+                    Text("ATTENDANCE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(dateId, fontSize = 20.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 if (log?.finalized == true) {
@@ -169,7 +186,6 @@ fun DayDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                // <--- 2. Detect Taps Outside to Clear Focus
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = {
                         focusManager.clearFocus()
@@ -189,7 +205,7 @@ fun DayDetailScreen(
                     // --- CHUNKY FOCUS INPUT ---
                     item {
                         Column {
-                            Text("CLASS FOCUS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
+                            Text("CLASS FOCUS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.sp)
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Box(
@@ -202,14 +218,14 @@ fun DayDetailScreen(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .offset(y = 4.dp)
-                                        .background(Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                                        .background(if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF2C2C2C) else Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
                                 )
                                 // Input Field
                                 Row(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color.White, RoundedCornerShape(16.dp))
-                                        .border(2.dp, if (isFocusDirty) DuoBlue else Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                                        .border(2.dp, if (isFocusDirty) DuoBlue else if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF2C2C2C) else Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
                                         .padding(horizontal = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -220,7 +236,7 @@ fun DayDetailScreen(
                                             isFocusDirty = true
                                         },
                                         enabled = !log!!.finalized,
-                                        textStyle = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4B4B4B)),
+                                        textStyle = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
                                         cursorBrush = SolidColor(DuoBlue),
                                         modifier = Modifier.weight(1f)
                                     )
@@ -280,7 +296,12 @@ fun DuoAttendanceRow(
         label = "color"
     )
 
-    // <--- 3. Removed .clickable from this outer Box
+    // Dynamic Colors for Dark Mode
+    val shadowColor = if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF2C2C2C) else Color(0xFFE5E5E5)
+    val cardColor = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -291,14 +312,14 @@ fun DuoAttendanceRow(
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = 4.dp)
-                .background(Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                .background(shadowColor, RoundedCornerShape(16.dp))
         )
         // Card Face
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White, RoundedCornerShape(16.dp))
-                .border(2.dp, Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                .background(cardColor, RoundedCornerShape(16.dp))
+                .border(2.dp, shadowColor, RoundedCornerShape(16.dp))
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -306,6 +327,7 @@ fun DuoAttendanceRow(
             Box(
                 modifier = Modifier
                     .size(48.dp)
+                    .clip(CircleShape) // Ensure circle clip
                     .background(Color(0xFFF7F7F7), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -315,19 +337,25 @@ fun DuoAttendanceRow(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(student.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF4B4B4B))
-                Text(student.belt, fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(student.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = textColor)
+                    // Optional: Visual indicator if student is inactive (deleted)
+                    if (!student.isActive) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("(Archived)", fontSize = 10.sp, color = DuoRed, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(student.belt, fontSize = 12.sp, color = subTextColor, fontWeight = FontWeight.Bold)
             }
 
             // Status Badge
-            // <--- 4. Added .clickable HERE
             Box(
                 modifier = Modifier
                     .height(36.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(statusColor.copy(alpha=0.15f))
                     .border(2.dp, statusColor, RoundedCornerShape(12.dp))
-                    .clickable(enabled = !isReadOnly) { // Click logic moved here
+                    .clickable(enabled = !isReadOnly) {
                         val nextStatus = when(status) {
                             AttendanceStatus.PRESENT -> AttendanceStatus.ABSENT
                             AttendanceStatus.ABSENT -> AttendanceStatus.LATE
