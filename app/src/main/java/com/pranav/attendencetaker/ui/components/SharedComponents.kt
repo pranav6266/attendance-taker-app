@@ -7,7 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,60 +35,63 @@ import com.pranav.attendencetaker.ui.theme.DuoGreen
 import com.pranav.attendencetaker.ui.theme.DuoRed
 import com.pranav.attendencetaker.ui.theme.DuoYellow
 
-// --- ANIMATED STREAK FIRE ---
+// --- COLOR HELPERS ---
+@Composable
+fun getCardFaceColor(): Color {
+    // Soft Dark Gray for Dark Mode, White for Light Mode
+    return if (isSystemInDarkTheme()) Color(0xFF252525) else Color.White
+}
 
+@Composable
+fun getShadowColor(): Color {
+    // Darker Black for Dark Mode shadow, Light Gray for Light Mode
+    return if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFE5E5E5)
+}
+
+@Composable
+fun getTextColor(): Color {
+    return if (isSystemInDarkTheme()) Color(0xFFEEEEEE) else Color(0xFF4B4B4B)
+}
+
+@Composable
+fun getSubTextColor(): Color {
+    return if (isSystemInDarkTheme()) Color(0xFFAAAAAA) else Color.Gray
+}
+
+// --- ANIMATED STREAK FIRE ---
 @Composable
 fun AnimatedStreakFire(streak: Int, size: Dp = 32.dp) {
     val infiniteTransition = rememberInfiniteTransition(label = "fire_pulse")
-
-    // Animate scale (Breathing effect)
     val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.2f,
+        initialValue = 1f, targetValue = 1.2f,
         animationSpec = infiniteRepeatable(
             animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
+        ), label = "scale"
     )
-
-    // Animate Alpha (Glow effect)
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1f,
+        initialValue = 0.8f, targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(1000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
+        ), label = "alpha"
     )
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = Icons.Default.LocalFireDepartment,
             contentDescription = "Streak",
             tint = if(streak > 0) DuoYellow else Color.Gray,
-            modifier = Modifier
-                .size(size)
-                .scale(if (streak > 0) scale else 1f)
-                .alpha(if (streak > 0) alpha else 0.5f)
+            modifier = Modifier.size(size).scale(if (streak > 0) scale else 1f).alpha(if (streak > 0) alpha else 0.5f)
         )
         if (streak > 0) {
             Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = streak.toString(),
-                fontWeight = FontWeight.Black,
-                color = DuoYellow,
-                fontSize = (size.value * 0.6).sp
-            )
+            Text(text = streak.toString(), fontWeight = FontWeight.Black, color = DuoYellow, fontSize = (size.value * 0.6).sp)
         }
     }
 }
 
 // --- 3D BUTTONS ---
-
 @Composable
 fun DuoIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -101,34 +106,20 @@ fun DuoIconButton(
 
     Box(
         modifier = Modifier
-            .width(size)
-            .height(size + 4.dp)
+            .width(size).height(size + 4.dp)
             .graphicsLayer { translationY = offsetY.dp.toPx() }
             .alpha(if (enabled) 1f else 0.4f)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
+            .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.TopCenter
     ) {
-        // Shadow
+        Box(modifier = Modifier.size(size).offset(y = 4.dp).background(color.darken(), CircleShape))
         Box(
-            modifier = Modifier
-                .size(size)
-                .offset(y = 4.dp)
-                .background(color.darken(), CircleShape)
-        )
-        // Face
-        Box(
-            modifier = Modifier
-                .size(size)
-                .background(color, CircleShape)
-                .border(2.dp, Color.Black.copy(alpha=0.05f), CircleShape),
+            modifier = Modifier.size(size).background(color, CircleShape).border(2.dp, Color.Black.copy(alpha=0.05f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White)
+            // Icon tint is Dark Gray if button is White/Light, otherwise White
+            val iconTint = if (color == Color.White || color == Color.LightGray) Color(0xFF4B4B4B) else Color.White
+            Icon(icon, contentDescription = null, tint = iconTint)
         }
     }
 }
@@ -147,34 +138,14 @@ fun DuoLabelButton(
     val offsetY by animateFloatAsState(if (isPressed) 4f else 0f, label = "offset")
 
     Box(
-        modifier = modifier
-            .height(54.dp)
-            .graphicsLayer { translationY = offsetY.dp.toPx() }
-            .alpha(if (enabled) 1f else 0.5f)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
+        modifier = modifier.height(54.dp).graphicsLayer { translationY = offsetY.dp.toPx() }.alpha(if (enabled) 1f else 0.5f)
+            .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.TopCenter
     ) {
-        // Shadow
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .offset(y = 4.dp)
-                .background(color.darken(), RoundedCornerShape(16.dp))
-        )
-        // Face
+        Box(modifier = Modifier.fillMaxWidth().height(50.dp).offset(y = 4.dp).background(color.darken(), RoundedCornerShape(16.dp)))
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .background(color, RoundedCornerShape(16.dp))
-                .border(2.dp, Color.Black.copy(alpha=0.05f), RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp).background(color, RoundedCornerShape(16.dp))
+                .border(2.dp, Color.Black.copy(alpha=0.05f), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -187,8 +158,7 @@ fun DuoLabelButton(
     }
 }
 
-// --- SUMMARY CARD ---
-
+// --- SUMMARY CARD (UPDATED) ---
 @Composable
 fun DaySummaryCard(
     log: DailyLog,
@@ -197,37 +167,26 @@ fun DaySummaryCard(
 ) {
     val presentCount = log.attendance.values.count { it == AttendanceStatus.PRESENT }
     val absentCount = log.attendance.values.count { it == AttendanceStatus.ABSENT }
-    val lateCount = log.attendance.values.count { it == AttendanceStatus.LATE }
+//    val lateCount = log.attendance.values.count { it == AttendanceStatus.LATE }
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-    ) {
+    val faceColor = getCardFaceColor()
+    val shadowColor = getShadowColor()
+    val textColor = getSubTextColor()
+
+    Box(modifier = modifier.fillMaxWidth().clickable { onClick() }) {
         // Shadow
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(184.dp)
-                .offset(y = 4.dp)
-                .background(Color(0xFFE5E5E5), RoundedCornerShape(24.dp))
-        )
+        Box(modifier = Modifier.fillMaxWidth().height(184.dp).offset(y = 4.dp).background(shadowColor, RoundedCornerShape(24.dp)))
 
         // Content
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(24.dp))
-                .border(2.dp, Color(0xFFE5E5E5), RoundedCornerShape(24.dp))
+                .background(faceColor, RoundedCornerShape(24.dp)) // Dynamic Color
+                .border(2.dp, shadowColor, RoundedCornerShape(24.dp))
                 .padding(24.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("SUMMARY", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Gray, letterSpacing = 1.sp)
-
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("SUMMARY", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textColor, letterSpacing = 1.sp)
                 if (log.finalized) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("LOCKED", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DuoGreen)
@@ -238,27 +197,15 @@ fun DaySummaryCard(
                     Text("UNFINALIZED", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DuoYellow)
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatBadge(count = presentCount, label = "Present", color = DuoGreen)
-                StatBadge(count = lateCount, label = "Late", color = DuoYellow)
+//                StatBadge(count = lateCount, label = "Late", color = DuoYellow)
                 StatBadge(count = absentCount, label = "Absent", color = DuoRed)
             }
-
             Spacer(modifier = Modifier.height(24.dp))
-
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (log.finalized) "VIEW DETAILS" else "FINALIZE ATTENDANCE",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = DuoBlue
-                )
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(text = if (log.finalized) "VIEW DETAILS" else "FINALIZE ATTENDANCE", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DuoBlue)
             }
         }
     }
@@ -273,34 +220,24 @@ fun StatBadge(count: Int, label: String, color: Color) {
 }
 
 // --- UTILS ---
-
 @Composable
 fun DotPatternBackground() {
+    val dotColor = if(isSystemInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val dotRadius = 2.dp.toPx()
         val spacing = 40.dp.toPx()
         val rows = (size.height / spacing).toInt()
         val cols = (size.width / spacing).toInt()
-
         for (i in 0..rows) {
             for (j in 0..cols) {
-                drawCircle(
-                    color = Color.LightGray.copy(alpha = 0.3f),
-                    radius = dotRadius,
-                    center = Offset(j * spacing + (if (i % 2 == 0) 0f else spacing / 2), i * spacing)
-                )
+                drawCircle(color = dotColor, radius = dotRadius, center = Offset(j * spacing + (if (i % 2 == 0) 0f else spacing / 2), i * spacing))
             }
         }
     }
 }
 
 fun Color.darken(factor: Float = 0.8f): Color {
-    return Color(
-        red = this.red * factor,
-        green = this.green * factor,
-        blue = this.blue * factor,
-        alpha = this.alpha
-    )
+    return Color(red = this.red * factor, green = this.green * factor, blue = this.blue * factor, alpha = this.alpha)
 }
 
 fun getBeltColor(belt: String): Color {

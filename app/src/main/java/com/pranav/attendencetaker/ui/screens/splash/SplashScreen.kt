@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,10 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pranav.attendencetaker.R
 import com.pranav.attendencetaker.data.AuthRepository
 import com.pranav.attendencetaker.ui.navigation.Screen
 import com.pranav.attendencetaker.ui.theme.DuoGreen
@@ -85,8 +88,14 @@ fun SplashScreen(navController: NavController) {
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // You can place an Image() composable here later
-                Text("LOGO", color = Color.White.copy(alpha=0.5f), fontWeight = FontWeight.Bold)
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo), // <--- YOUR NEW DRAWABLE
+                    contentDescription = "App Logo",
+                    modifier = Modifier
+                        .size(180.dp) // Adjust size as needed
+                        .scale(scale.value)
+                    // We don't need the background modifier anymore as the logo has its own color
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

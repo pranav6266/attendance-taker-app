@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pranav.attendencetaker.R
 import com.pranav.attendencetaker.data.AuthRepository
 import com.pranav.attendencetaker.ui.components.DuoLabelButton
 import com.pranav.attendencetaker.ui.navigation.Screen
@@ -87,9 +88,11 @@ fun LoginScreen(navController: NavController) {
                     .background(Color(0xFFF7F7F7), androidx.compose.foundation.shape.CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                // Replace with your mascot/hero image later
-                Text("TKD", fontSize = 48.sp, fontWeight = FontWeight.Black, color = Color.LightGray)
-            }
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo), // <--- YOUR NEW DRAWABLE
+                    contentDescription = "App Logo",
+                    modifier = Modifier.size(180.dp) // Adjust size to fit nicely
+                ) }
 
             Spacer(modifier = Modifier.height(32.dp))
 

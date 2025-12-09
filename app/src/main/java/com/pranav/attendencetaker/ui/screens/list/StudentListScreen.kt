@@ -3,20 +3,7 @@ package com.pranav.attendencetaker.ui.screens.list
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -24,10 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -54,20 +39,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 // --- VIEWMODEL ---
+// This class was likely missing or unresolved in your previous file
 class StudentListViewModel : ViewModel() {
     private val repo = FirestoreRepository()
     private val _students = MutableStateFlow<List<Student>>(emptyList())
     val students = _students.asStateFlow()
 
     init {
-        // 2. Start listening immediately when ViewModel is created
         viewModelScope.launch {
             repo.getActiveStudentsFlow().collect { updatedList ->
                 _students.value = updatedList
             }
         }
     }
-
 }
 
 // --- SCREEN ---
@@ -77,8 +61,10 @@ fun StudentListScreen(
     viewModel: StudentListViewModel = viewModel()
 ) {
     val students by viewModel.students.collectAsState()
+
+    // 1. Set Scaffold Background for Dark Mode
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -87,9 +73,10 @@ fun StudentListScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // 2. Fix Back Button Visibility
                 DuoIconButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurface,
                     onClick = { navController.popBackStack() }
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -97,7 +84,7 @@ fun StudentListScreen(
                     "STUDENTS",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -111,10 +98,12 @@ fun StudentListScreen(
             }
         }
     ) { padding ->
+        // 3. Set Root Box Background for Dark Mode
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             DotPatternBackground()
 
@@ -131,6 +120,7 @@ fun StudentListScreen(
                         StudentListItem(
                             student = student,
                             onClick = {
+                                // 'id' error happens if imports are wrong or Student class isn't seen
                                 navController.navigate(Screen.StudentEntry.createRoute(student.id))
                             }
                         )
@@ -143,6 +133,11 @@ fun StudentListScreen(
 
 @Composable
 fun StudentListItem(student: Student, onClick: () -> Unit) {
+    // Dynamic colors
+    val shadowColor = if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF2C2C2C) else Color(0xFFE5E5E5)
+    val cardColor = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,14 +149,14 @@ fun StudentListItem(student: Student, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = 4.dp)
-                .background(Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                .background(shadowColor, RoundedCornerShape(16.dp))
         )
         // Card Face
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White, RoundedCornerShape(16.dp))
-                .border(2.dp, Color(0xFFE5E5E5), RoundedCornerShape(16.dp))
+                .background(cardColor, RoundedCornerShape(16.dp))
+                .border(2.dp, shadowColor, RoundedCornerShape(16.dp))
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -187,7 +182,7 @@ fun StudentListItem(student: Student, onClick: () -> Unit) {
                     student.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF4B4B4B)
+                    color = textColor
                 )
                 Text(
                     "${student.belt} Belt",

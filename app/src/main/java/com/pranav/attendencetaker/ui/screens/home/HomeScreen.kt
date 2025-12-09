@@ -1,11 +1,7 @@
 package com.pranav.attendencetaker.ui.screens.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -68,7 +64,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Refresh data when returning to screen
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
@@ -78,15 +73,14 @@ fun HomeScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background, // Fixed Dark Mode
         topBar = {
             HomeHeaderBar(
                 progress = uiState.progress,
-                streak = 0 // Connect this to real data later
+                streak = 0 // Connect to real data later
             )
         },
         bottomBar = {
-            // NEW: Navigation is now in the bottom dock for better reachability
             BottomNavDock(
                 onHistory = onNavigateToStats,
                 onStudents = onNavigateToStudents,
@@ -98,11 +92,10 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(BackgroundGray)
+                .background(MaterialTheme.colorScheme.background) // Fixed Dark Mode
         ) {
             DotPatternBackground()
 
-            // Main Content Area
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -111,19 +104,16 @@ fun HomeScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 1. BIG HEADING
                 GreetingHeader()
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 2. THE STAGE (Card Stack)
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // "Stage" Circle to anchor the cards visually
                     Canvas(modifier = Modifier.size(300.dp).offset(y = 50.dp)) {
                         drawCircle(color = Color.Black.copy(alpha = 0.03f))
                     }
@@ -157,7 +147,6 @@ fun HomeScreen(
                         }
 
                         !uiState.isAttendanceFinalized && uiState.dailyLog != null -> {
-                            // Summary View
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("Class Dismissed!", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = DuoBlue)
                                 Text("Great job today, Sensei.", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 24.dp))
@@ -175,8 +164,6 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 3. FLOATING UNDO BUTTON
-            // Floats above the bottom dock, left aligned
             val showUndo = uiState.progress > 0 && uiState.studentsQueue.isNotEmpty()
             AnimatedVisibility(
                 visible = showUndo,
@@ -197,25 +184,44 @@ fun HomeScreen(
     }
 }
 
-// --- NEW COMPONENTS ---
-
 @Composable
 fun HomeHeaderBar(progress: Float, streak: Int) {
+    // Animation for the Fire Icon
+    val infiniteTransition = rememberInfiniteTransition(label = "streak_fire")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Progress Bar (Now Centered and Wider)
+        // Progress Bar
         Box(
             modifier = Modifier
                 .weight(1f)
                 .height(24.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFE5E5E5))
+                .background(if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF333333) else Color(0xFFE5E5E5))
         ) {
             val animatedProgress by animateFloatAsState(
                 targetValue = progress,
@@ -242,13 +248,16 @@ fun HomeHeaderBar(progress: Float, streak: Int) {
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Streak Icon
+        // Streak Icon - ANIMATED
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                painter = painterResource(android.R.drawable.ic_lock_idle_low_battery),
+                painter = painterResource(android.R.drawable.ic_lock_idle_low_battery), // Use a Fire icon if available
                 contentDescription = "Streak",
-                tint = if (streak > 0) DuoYellow else Color.LightGray,
-                modifier = Modifier.size(28.dp)
+                tint = if (streak >= 0) DuoYellow else Color.LightGray, // Always yellow for effect if desired
+                modifier = Modifier
+                    .size(28.dp)
+                    .scale(scale) // Apply Pulse
+                    .alpha(alpha) // Apply Glow
             )
             if (streak > 0) {
                 Spacer(modifier = Modifier.width(4.dp))
@@ -266,14 +275,14 @@ fun GreetingHeader() {
             text = date.uppercase(),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.sp
         )
         Text(
             text = "Time to Train!",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Black,
-            color = Color(0xFF4B4B4B)
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
@@ -287,21 +296,18 @@ fun BottomNavDock(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(16.dp)
             .navigationBarsPadding(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // History (Left - Easy Reach)
         DuoIconButton(
             icon = Icons.Rounded.DateRange,
-            color = DuoBlue, // Blue for navigation
+            color = DuoBlue,
             size = 50.dp,
             onClick = onHistory
         )
-
-        // Students (Center - Main Action)
         DuoLabelButton(
             text = "STUDENTS",
             icon = Icons.AutoMirrored.Filled.List,
@@ -311,19 +317,17 @@ fun BottomNavDock(
                 .padding(horizontal = 16.dp),
             onClick = onStudents
         )
-
-        // Profile (Right)
         DuoIconButton(
             icon = Icons.Default.Person,
-            color = Color(0xFF9C27B0), // Purple for profile
+            color = Color(0xFF9C27B0),
             size = 50.dp,
             onClick = onProfile
         )
     }
 }
 
-// --- CARD ANIMATIONS (Unchanged Logic, just visual placement) ---
-
+// ... SwipeableStudentCard, CardOverlay, StudentCard, FinishedView remain similar
+// Ensure StudentCard uses MaterialTheme.colorScheme.surface
 @Composable
 fun SwipeableStudentCard(
     student: Student,
@@ -394,21 +398,20 @@ fun SwipeableStudentCard(
 fun CardOverlay(color: Color, alpha: Float, text: String) {
     Box(
         modifier = Modifier
-            .fillMaxSize() // Fill the whole card so we can align to corners
-            .background(color.copy(alpha = alpha * 0.4f)), // Lighter background tint
-        contentAlignment = Alignment.TopStart // 1. Move to Top Left
+            .fillMaxSize()
+            .background(color.copy(alpha = alpha * 0.4f)),
+        contentAlignment = Alignment.TopStart
     ) {
-        // The "Stamp" Text
         Text(
             text = text,
             fontSize = 32.sp,
             fontWeight = FontWeight.Black,
-            color = color, // Use the solid color for text
+            color = color,
             letterSpacing = 2.sp,
             modifier = Modifier
-                .padding(top = 40.dp, start = 24.dp) // 2. Add spacing from edge
-                .graphicsLayer { rotationZ = -15f } // 3. Rotate it like a stamp
-                .border(4.dp, color, RoundedCornerShape(8.dp)) // 4. Add a border box
+                .padding(top = 40.dp, start = 24.dp)
+                .graphicsLayer { rotationZ = -15f }
+                .border(4.dp, color, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 4.dp)
         )
     }
@@ -426,10 +429,9 @@ fun StudentCard(
             .height(500.dp)
             .padding(8.dp),
         shape = RoundedCornerShape(24.dp),
-        // Duolingo style: Big borders
-        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFE5E5E5)),
+        border = androidx.compose.foundation.BorderStroke(2.dp, if(androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF333333) else Color(0xFFE5E5E5)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isTopCard) 10.dp else 0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Use Surface for dark mode compatibility
     ) {
         Column(
             modifier = Modifier
@@ -443,7 +445,7 @@ fun StudentCard(
                     .size(140.dp)
                     .clip(CircleShape)
                     .background(getBeltColor(student.belt))
-                    .border(6.dp, Color.White, CircleShape)
+                    .border(6.dp, MaterialTheme.colorScheme.surface, CircleShape)
                     .border(4.dp, Color.Black.copy(alpha=0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -461,18 +463,18 @@ fun StudentCard(
                 text = student.name,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF4B4B4B)
+                color = MaterialTheme.colorScheme.onSurface // Fix Text Color
             )
 
             Surface(
-                color = BackgroundGray,
+                color = MaterialTheme.colorScheme.background,
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.padding(top=8.dp)
             ) {
                 Text(
                     text = "${student.belt} Belt",
                     fontSize = 16.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
