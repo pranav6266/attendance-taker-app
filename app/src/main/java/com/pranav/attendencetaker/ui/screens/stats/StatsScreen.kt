@@ -1,6 +1,7 @@
 package com.pranav.attendencetaker.ui.screens.stats
 
 import android.app.DatePickerDialog
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,20 +9,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -31,14 +31,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pranav.attendencetaker.data.model.DailyLog
 import com.pranav.attendencetaker.ui.components.DaySummaryCard
+import com.pranav.attendencetaker.ui.components.DotPatternBackground
+import com.pranav.attendencetaker.ui.components.DuoIconButton
+import com.pranav.attendencetaker.ui.components.darken
 import com.pranav.attendencetaker.ui.navigation.Screen
 import com.pranav.attendencetaker.ui.theme.DuoBlue
 import com.pranav.attendencetaker.ui.theme.DuoGreen
+import com.pranav.attendencetaker.ui.theme.DuoYellow
 import java.time.LocalDate
 import java.time.YearMonth
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
     navController: NavController,
@@ -66,134 +70,206 @@ fun StatsScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text("Attendance History", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.padding(end = 16.dp)
-                    ) {
-                        Text("Classes Held", fontSize = 10.sp, color = Color.Gray, lineHeight = 10.sp)
-                        Text(
-                            text = logs.size.toString(),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DuoBlue,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { viewModel.previousMonth() }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
-                }
+                DuoIconButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    color = Color.LightGray,
+                    onClick = { navController.popBackStack() }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("HISTORY", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color.Gray, letterSpacing = 1.sp)
+                Spacer(modifier = Modifier.weight(1f))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { datePickerDialog.show() }
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = "${currentMonth.month.name} ${currentMonth.year}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = DuoBlue
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.Edit, contentDescription = "Pick Date", modifier = Modifier.size(16.dp), tint = DuoBlue)
-                }
-
-                IconButton(onClick = { viewModel.nextMonth() }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                // Classes Held Badge
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("HELD", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.LightGray)
+                    Text(logs.size.toString(), fontSize = 24.sp, fontWeight = FontWeight.Black, color = DuoBlue)
                 }
             }
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            DotPatternBackground()
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(7),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.height(350.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
             ) {
-                items(listOf("S", "M", "T", "W", "T", "F", "S")) { day ->
-                    Text(day, textAlign = TextAlign.Center, color = Color.Gray)
+                // --- MONTH CONTROL ---
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DuoIconButton(
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        color = DuoBlue,
+                        onClick = { viewModel.previousMonth() }
+                    )
+
+                    // Month "Chip"
+                    Box(
+                        modifier = Modifier
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White)
+                            .border(2.dp, Color(0xFFE5E5E5), RoundedCornerShape(12.dp))
+                            .clickable { datePickerDialog.show() }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DateRange, contentDescription = null, tint = DuoBlue, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "${currentMonth.month.name} ${currentMonth.year}",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DuoBlue
+                            )
+                        }
+                    }
+
+                    DuoIconButton(
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        color = DuoBlue,
+                        onClick = { viewModel.nextMonth() }
+                    )
                 }
 
-                items(firstDayOfWeek) { Spacer(modifier = Modifier) }
+                // --- CALENDAR GRID ---
+                // Looks like "Level Select"
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(7),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.height(360.dp)
+                ) {
+                    items(listOf("S", "M", "T", "W", "T", "F", "S")) { day ->
+                        Text(day, textAlign = TextAlign.Center, color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
 
-                items(daysInMonth) { day ->
-                    val date = LocalDate.of(currentMonth.year, currentMonth.month, day)
-                    val dateId = date.toString()
-                    val log = logs.find { it.id == dateId }
-                    val hasLog = log != null
-                    val isSelected = selectedDateId == dateId
+                    items(firstDayOfWeek) { Spacer(modifier = Modifier) }
 
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isSelected -> DuoBlue
-                                    hasLog -> DuoGreen
-                                    else -> Color.LightGray.copy(alpha = 0.3f)
-                                }
-                            )
-                            .clickable(enabled = hasLog) {
-                                selectedDateId = if (selectedDateId == dateId) null else dateId
+                    items(daysInMonth) { day ->
+                        val date = LocalDate.of(currentMonth.year, currentMonth.month, day)
+                        val dateId = date.toString()
+                        val log = logs.find { it.id == dateId }
+                        val hasLog = log != null
+                        val isSelected = selectedDateId == dateId
+
+                        CalendarDayItem(
+                            day = day,
+                            hasLog = hasLog,
+                            isSelected = isSelected,
+                            onClick = {
+                                if (hasLog) selectedDateId = if (isSelected) null else dateId
                             }
-                            .then(if (isSelected) Modifier.border(2.dp, Color.Black, CircleShape) else Modifier)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- SUMMARY CARD ---
+                if (selectedDateId != null) {
+                    val selectedLog = logs.find { it.id == selectedDateId }
+                    if (selectedLog != null) {
+                        DaySummaryCard(
+                            log = selectedLog,
+                            onClick = {
+                                navController.navigate(Screen.DayDetail.createRoute(selectedDateId!!))
+                            }
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = day.toString(),
-                            color = if (hasLog || isSelected) Color.White else Color.Black,
-                            fontWeight = FontWeight.Bold
+                            "Select a green day to view stats",
+                            color = Color.LightGray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(24.dp))
+@Composable
+fun CalendarDayItem(
+    day: Int,
+    hasLog: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(if (isSelected) 1.1f else 1f, label = "scale")
 
-            if (selectedDateId != null) {
-                val selectedLog = logs.find { it.id == selectedDateId }
-                if (selectedLog != null) {
-                    DaySummaryCard(
-                        log = selectedLog,
-                        onClick = {
-                            navController.navigate(Screen.DayDetail.createRoute(selectedDateId!!))
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            } else {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Select a highlighted date to view summary", color = Color.Gray, fontSize = 12.sp)
-                }
-            }
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .scale(scale)
+            .clip(CircleShape)
+            .clickable(enabled = hasLog, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isSelected) {
+            // Selected Ring
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(3.dp, DuoBlue, CircleShape)
+            )
+        }
+
+        // Main Circle
+        Box(
+            modifier = Modifier
+                .fillMaxSize(if (isSelected) 0.8f else 1f)
+                .background(
+                    when {
+                        hasLog -> DuoGreen // Data exists
+                        else -> Color.Transparent
+                    },
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = day.toString(),
+                color = if (hasLog) Color.White else Color.Gray,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        }
+
+        // "Empty" marker for days without logs (small dot)
+        if (!hasLog) {
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .offset(y = 12.dp)
+                    .background(Color(0xFFE5E5E5), CircleShape)
+            )
         }
     }
 }

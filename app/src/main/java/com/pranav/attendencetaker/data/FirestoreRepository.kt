@@ -38,6 +38,17 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun getStudentById(studentId: String): Student? {
+        return try {
+            val doc = studentsRef.document(studentId).get().await()
+            doc.toObject(Student::class.java)?.apply {
+                id = doc.id
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun saveStudent(student: Student): Boolean {
         return try {
             val docRef = if (student.id.isEmpty()) {
@@ -49,6 +60,19 @@ class FirestoreRepository {
             true
         } catch (e: Exception) {
             Log.e("FirestoreRepo", "Error saving student", e)
+            false
+        }
+    }
+
+    suspend fun deleteStudent(studentId: String): Boolean {
+        return try {
+            // Soft delete by setting is_active to false
+            studentsRef.document(studentId)
+                .update("is_active", false)
+                .await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error deleting student", e)
             false
         }
     }
@@ -134,7 +158,6 @@ class FirestoreRepository {
         }
     }
 
-    // --- NEW FUNCTION ---
     suspend fun updateFocus(dateId: String, newFocus: String) {
         try {
             logsRef.document(dateId)

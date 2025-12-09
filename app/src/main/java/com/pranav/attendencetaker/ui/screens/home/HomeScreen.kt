@@ -1,18 +1,19 @@
 package com.pranav.attendencetaker.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,9 +46,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pranav.attendencetaker.data.model.AttendanceStatus
 import com.pranav.attendencetaker.data.model.Student
 import com.pranav.attendencetaker.ui.components.DaySummaryCard
+import com.pranav.attendencetaker.ui.components.DotPatternBackground
+import com.pranav.attendencetaker.ui.components.DuoIconButton
+import com.pranav.attendencetaker.ui.components.DuoLabelButton
+import com.pranav.attendencetaker.ui.components.getBeltColor
 import com.pranav.attendencetaker.ui.navigation.Screen
 import com.pranav.attendencetaker.ui.theme.*
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 @Composable
@@ -61,6 +68,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // Refresh data when returning to screen
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
@@ -72,17 +80,16 @@ fun HomeScreen(
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            DuoTopBar(
+            HomeHeaderBar(
                 progress = uiState.progress,
-                onHistoryClick = onNavigateToStats,
-                streak = 0
+                streak = 0 // Connect this to real data later
             )
         },
         bottomBar = {
-            BottomControlDock(
-                onUndo = { viewModel.onUndo() },
-                canUndo = uiState.progress > 0 && uiState.studentsQueue.isNotEmpty(),
-                onManageStudents = onNavigateToStudents,
+            // NEW: Navigation is now in the bottom dock for better reachability
+            BottomNavDock(
+                onHistory = onNavigateToStats,
+                onStudents = onNavigateToStudents,
                 onProfile = onNavigateToProfile
             )
         }
@@ -95,100 +102,118 @@ fun HomeScreen(
         ) {
             DotPatternBackground()
 
-            Box(
+            // Main Content Area
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                when {
-                    uiState.isLoading -> CircularProgressIndicator(color = DuoGreen, strokeWidth = 6.dp)
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    uiState.studentsQueue.isNotEmpty() -> {
-                        val topStudent = uiState.studentsQueue[0]
-                        val nextStudent = uiState.studentsQueue.getOrNull(1)
+                // 1. BIG HEADING
+                GreetingHeader()
 
-                        if (nextStudent != null) {
-                            key(nextStudent.id) {
-                                StudentCard(
-                                    student = nextStudent,
-                                    modifier = Modifier
-                                        .scale(0.92f)
-                                        .offset(y = 25.dp)
-                                        .alpha(0.8f),
-                                    isTopCard = false
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 2. THE STAGE (Card Stack)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // "Stage" Circle to anchor the cards visually
+                    Canvas(modifier = Modifier.size(300.dp).offset(y = 50.dp)) {
+                        drawCircle(color = Color.Black.copy(alpha = 0.03f))
+                    }
+
+                    when {
+                        uiState.isLoading -> CircularProgressIndicator(color = DuoGreen, strokeWidth = 6.dp)
+
+                        uiState.studentsQueue.isNotEmpty() -> {
+                            val topStudent = uiState.studentsQueue[0]
+                            val nextStudent = uiState.studentsQueue.getOrNull(1)
+
+                            if (nextStudent != null) {
+                                key(nextStudent.id) {
+                                    StudentCard(
+                                        student = nextStudent,
+                                        modifier = Modifier
+                                            .scale(0.92f)
+                                            .offset(y = 25.dp)
+                                            .alpha(0.6f),
+                                        isTopCard = false
+                                    )
+                                }
+                            }
+
+                            key(topStudent.id) {
+                                SwipeableStudentCard(
+                                    student = topStudent,
+                                    onSwipe = { status -> viewModel.onSwipe(topStudent, status) }
                                 )
                             }
                         }
 
-                        key(topStudent.id) {
-                            SwipeableStudentCard(
-                                student = topStudent,
-                                onSwipe = { status -> viewModel.onSwipe(topStudent, status) }
-                            )
+                        !uiState.isAttendanceFinalized && uiState.dailyLog != null -> {
+                            // Summary View
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Class Dismissed!", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = DuoBlue)
+                                Text("Great job today, Sensei.", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 24.dp))
+                                DaySummaryCard(
+                                    log = uiState.dailyLog!!,
+                                    onClick = { navController.navigate(Screen.DayDetail.createRoute(uiState.dailyLog!!.id)) }
+                                )
+                            }
                         }
+
+                        uiState.isAttendanceFinalized -> FinishedView()
                     }
-
-                    !uiState.isAttendanceFinalized && uiState.dailyLog != null -> {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Class Dismissed!",
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = DuoBlue,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Text(
-                                "Great job today, Sensei.",
-                                fontSize = 16.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            DaySummaryCard(
-                                log = uiState.dailyLog!!,
-                                onClick = {
-                                    navController.navigate(Screen.DayDetail.createRoute(uiState.dailyLog!!.id))
-                                }
-                            )
-                        }
-                    }
-
-                    uiState.isAttendanceFinalized -> FinishedView()
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // 3. FLOATING UNDO BUTTON
+            // Floats above the bottom dock, left aligned
+            val showUndo = uiState.progress > 0 && uiState.studentsQueue.isNotEmpty()
+            AnimatedVisibility(
+                visible = showUndo,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 24.dp, bottom = 24.dp)
+            ) {
+                DuoIconButton(
+                    icon = Icons.Default.Refresh,
+                    color = DuoYellow,
+                    size = 48.dp,
+                    onClick = { viewModel.onUndo() }
+                )
             }
         }
     }
 }
 
-// --- COMPONENTS ---
+// --- NEW COMPONENTS ---
 
 @Composable
-fun DuoTopBar(
-    progress: Float,
-    onHistoryClick: () -> Unit,
-    streak: Int
-) {
+fun HomeHeaderBar(progress: Float, streak: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .background(Color.White)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DuoIconButton(
-            icon = Icons.Rounded.DateRange,
-            color = DuoBlue,
-            onClick = onHistoryClick
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
+        // Progress Bar (Now Centered and Wider)
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(20.dp)
+                .height(24.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFFE5E5E5))
         ) {
@@ -203,36 +228,60 @@ fun DuoTopBar(
                     .fillMaxHeight()
                     .fillMaxWidth(animatedProgress)
                     .background(DuoGreen)
-                    .padding(top = 4.dp, start = 8.dp)
+                    .padding(top = 6.dp, start = 10.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
-                        .height(3.dp)
+                        .height(4.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Color.White.copy(alpha = 0.3f))
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
+        // Streak Icon
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 painter = painterResource(android.R.drawable.ic_lock_idle_low_battery),
                 contentDescription = "Streak",
                 tint = if (streak > 0) DuoYellow else Color.LightGray,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(28.dp)
             )
+            if (streak > 0) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(streak.toString(), fontWeight = FontWeight.Bold, color = DuoYellow, fontSize = 18.sp)
+            }
         }
     }
 }
 
 @Composable
-fun BottomControlDock(
-    onUndo: () -> Unit,
-    canUndo: Boolean,
-    onManageStudents: () -> Unit,
+fun GreetingHeader() {
+    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = date.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray,
+            letterSpacing = 1.sp
+        )
+        Text(
+            text = "Time to Train!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = Color(0xFF4B4B4B)
+        )
+    }
+}
+
+@Composable
+fun BottomNavDock(
+    onHistory: () -> Unit,
+    onStudents: () -> Unit,
     onProfile: () -> Unit
 ) {
     Row(
@@ -244,14 +293,15 @@ fun BottomControlDock(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // History (Left - Easy Reach)
         DuoIconButton(
-            icon = Icons.Default.Refresh,
-            color = DuoYellow,
-            enabled = canUndo,
+            icon = Icons.Rounded.DateRange,
+            color = DuoBlue, // Blue for navigation
             size = 50.dp,
-            onClick = onUndo
+            onClick = onHistory
         )
 
+        // Students (Center - Main Action)
         DuoLabelButton(
             text = "STUDENTS",
             icon = Icons.AutoMirrored.Filled.List,
@@ -259,103 +309,20 @@ fun BottomControlDock(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 16.dp),
-            onClick = onManageStudents
+            onClick = onStudents
         )
 
+        // Profile (Right)
         DuoIconButton(
             icon = Icons.Default.Person,
-            color = Color(0xFF9C27B0),
+            color = Color(0xFF9C27B0), // Purple for profile
             size = 50.dp,
             onClick = onProfile
         )
     }
 }
 
-@Composable
-fun DuoIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    size: androidx.compose.ui.unit.Dp = 40.dp,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val offsetY by animateFloatAsState(if (isPressed) 4f else 0f, label = "offset")
-
-    Box(
-        modifier = Modifier
-            .width(size)
-            .height(size + 4.dp)
-            .graphicsLayer { translationY = offsetY.dp.toPx() }
-            .alpha(if (enabled) 1f else 0.4f)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .size(size)
-                .offset(y = 4.dp)
-                .background(color.darken(), CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .size(size)
-                .background(color, CircleShape)
-                .border(2.dp, Color.Black.copy(alpha=0.05f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = Color.White)
-        }
-    }
-}
-
-@Composable
-fun DuoLabelButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val offsetY by animateFloatAsState(if (isPressed) 4f else 0f, label = "offset")
-
-    Box(
-        modifier = modifier
-            .height(54.dp) // Adjusted to fit shadow
-            .graphicsLayer { translationY = offsetY.dp.toPx() }
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .offset(y = 4.dp)
-                .background(color.darken(), RoundedCornerShape(16.dp))
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .background(color, RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = Color.White)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-        }
-    }
-}
+// --- CARD ANIMATIONS (Unchanged Logic, just visual placement) ---
 
 @Composable
 fun SwipeableStudentCard(
@@ -450,13 +417,15 @@ fun StudentCard(
             .height(500.dp)
             .padding(8.dp),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(2.dp, Color(0xFFE5E5E5)),
+        // Duolingo style: Big borders
+        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFE5E5E5)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isTopCard) 10.dp else 0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
-            .padding(vertical = 32.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -520,8 +489,6 @@ fun StudentCard(
     }
 }
 
-// --- MISSING FUNCTIONS RESTORED BELOW ---
-
 @Composable
 fun FinishedView() {
     Column(
@@ -532,45 +499,4 @@ fun FinishedView() {
         Text("All Done!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = DuoGreen)
         Text("Attendance finalized for today.", fontSize = 16.sp, color = Color.Gray)
     }
-}
-
-fun getBeltColor(belt: String): Color {
-    return when(belt.lowercase()) {
-        "white" -> Color.LightGray
-        "yellow" -> Color(0xFFFFEB3B)
-        "green" -> Color(0xFF4CAF50)
-        "blue" -> Color(0xFF2196F3)
-        "red" -> Color(0xFFF44336)
-        "black" -> Color.Black
-        else -> Color.Gray
-    }
-}
-
-@Composable
-fun DotPatternBackground() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val dotRadius = 2.dp.toPx()
-        val spacing = 40.dp.toPx()
-        val rows = (size.height / spacing).toInt()
-        val cols = (size.width / spacing).toInt()
-
-        for (i in 0..rows) {
-            for (j in 0..cols) {
-                drawCircle(
-                    color = Color.LightGray.copy(alpha = 0.3f),
-                    radius = dotRadius,
-                    center = Offset(j * spacing + (if (i % 2 == 0) 0f else spacing / 2), i * spacing)
-                )
-            }
-        }
-    }
-}
-
-fun Color.darken(factor: Float = 0.8f): Color {
-    return Color(
-        red = this.red * factor,
-        green = this.green * factor,
-        blue = this.blue * factor,
-        alpha = this.alpha
-    )
 }
