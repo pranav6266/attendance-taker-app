@@ -3,34 +3,35 @@ package com.pranav.attendencetaker.data.model
 import com.google.firebase.firestore.Exclude
 import com.google.firebase.firestore.PropertyName
 
-// 1. Enum for strict type safety (prevents typos like "Present" vs "present")
 enum class AttendanceStatus {
     PRESENT, ABSENT, LATE
 }
 
-// 2. The Student Data Class
 data class Student(
-    // We explicitly exclude ID from the document body because it is the Document Name itself
     @get:Exclude var id: String = "",
 
     val name: String = "",
     val age: Int = 0,
 
-    @get:PropertyName("phone_number") // Maps to "phone_number" in Firestore
-    val phoneNumber: String = "",
+    // CHANGE 1: val -> var, remove 'get:'
+    @PropertyName("phone_number")
+    var phoneNumber: String = "",
 
-    val belt: String = "White", // Default belt
+    var belt: String = "White",
 
-    @get:PropertyName("is_active")
-    val isActive: Boolean = true, // To filter out dropouts
+    // CHANGE 2: val -> var, remove 'get:'
+    @PropertyName("is_active")
+    var isActive: Boolean = true,
 
-    // Quick Stats for the UI
-    @get:PropertyName("total_classes")
-    val totalClasses: Int = 0,
+    // CHANGE 3: val -> var, remove 'get:'
+    @PropertyName("total_classes")
+    var totalClasses: Int = 0,
 
-    @get:PropertyName("current_streak")
-    val currentStreak: Int = 0,
+    // CHANGE 4: val -> var, remove 'get:' -- THIS FIXES YOUR STREAK BUG
+    @PropertyName("current_streak")
+    var currentStreak: Int = 0,
 
-    @get:PropertyName("last_attended_date")
-    val lastAttendedDate: Long = 0
+    // CHANGE 5: val -> var, remove 'get:'
+    @PropertyName("last_attended_date")
+    var lastAttendedDate: Long = 0
 )

@@ -6,6 +6,9 @@ import com.google.firebase.firestore.SetOptions
 import com.pranav.attendencetaker.data.model.AttendanceStatus
 import com.pranav.attendencetaker.data.model.DailyLog
 import com.pranav.attendencetaker.data.model.Student
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -18,6 +21,30 @@ class FirestoreRepository {
     private val logsRef = db.collection("daily_logs")
 
     // --- STUDENT MANAGEMENT ---
+
+    fun getActiveStudentsFlow(): Flow<List<Student>> = callbackFlow {
+        val listener = studentsRef
+            .whereEqualTo("is_active", true)
+            .orderBy("name")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error) // Close the flow on error
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val students = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Student::class.java)?.apply {
+                            id = doc.id
+                        }
+                    }
+                    trySend(students) // Send the new list to the UI
+                }
+            }
+
+        // This block runs when the UI stops listening (e.g., screen closed)
+        awaitClose { listener.remove() }
+    }
 
     suspend fun getActiveStudents(): List<Student> {
         return try {
