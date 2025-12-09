@@ -18,6 +18,8 @@ import java.util.Stack
 class HomeViewModel : ViewModel() {
 
     private val repository = FirestoreRepository()
+    private val calculateStreak = com.pranav.attendencetaker.domain.CalculateStreakUseCase()
+    private var allCachedStudents: List<Student> = emptyList()
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -39,6 +41,7 @@ class HomeViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true) }
 
             val allStudents = repository.getActiveStudents()
+            allCachedStudents = allStudents
             val todayLog = repository.getTodayLog()
 
             // Populate local map with existing data
@@ -109,11 +112,33 @@ class HomeViewModel : ViewModel() {
     private fun saveToBackend() {
         viewModelScope.launch {
             try {
+                // 1. Save the Daily Log (Existing logic)
                 repository.saveAttendanceBatch(
                     attendanceMap = _attendanceMap,
                     focusOfTheDay = "Regular Class"
                 )
-                Log.d("HomeViewModel", "Auto-saved to Firestore")
+
+                // 2. NEW: Calculate and Save Streaks
+                val streakUpdates = mutableMapOf<String, Pair<Int, Long>>()
+                val now = System.currentTimeMillis()
+
+                // Filter for students who are PRESENT or LATE
+                _attendanceMap.filter {
+                    it.value == AttendanceStatus.PRESENT || it.value == AttendanceStatus.LATE
+                }.forEach { (studentId, _) ->
+                    val student = allCachedStudents.find { it.id == studentId }
+                    if (student != null) {
+                        val newStreak = calculateStreak(student.currentStreak, student.lastAttendedDate)
+                        streakUpdates[studentId] = Pair(newStreak, now)
+                    }
+                }
+
+                if (streakUpdates.isNotEmpty()) {
+                    repository.updateStudentStreaks(streakUpdates)
+                }
+
+                Log.d("HomeViewModel", "Auto-saved log and updated streaks")
+
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to save: ${e.message}") }
             }

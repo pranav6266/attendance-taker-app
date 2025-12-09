@@ -29,5 +29,8 @@ data class Student(
     val totalClasses: Int = 0,
 
     @get:PropertyName("current_streak")
-    val currentStreak: Int = 0
+    val currentStreak: Int = 0,
+
+    @get:PropertyName("last_attended_date")
+    val lastAttendedDate: Long = 0
 )

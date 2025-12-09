@@ -394,14 +394,23 @@ fun SwipeableStudentCard(
 fun CardOverlay(color: Color, alpha: Float, text: String) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(500.dp)
-            .padding(8.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(color.copy(alpha = alpha * 0.8f)),
-        contentAlignment = Alignment.Center
+            .fillMaxSize() // Fill the whole card so we can align to corners
+            .background(color.copy(alpha = alpha * 0.4f)), // Lighter background tint
+        contentAlignment = Alignment.TopStart // 1. Move to Top Left
     ) {
-        Text(text, fontSize = 40.sp, fontWeight = FontWeight.Black, color = Color.White)
+        // The "Stamp" Text
+        Text(
+            text = text,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Black,
+            color = color, // Use the solid color for text
+            letterSpacing = 2.sp,
+            modifier = Modifier
+                .padding(top = 40.dp, start = 24.dp) // 2. Add spacing from edge
+                .graphicsLayer { rotationZ = -15f } // 3. Rotate it like a stamp
+                .border(4.dp, color, RoundedCornerShape(8.dp)) // 4. Add a border box
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        )
     }
 }
 

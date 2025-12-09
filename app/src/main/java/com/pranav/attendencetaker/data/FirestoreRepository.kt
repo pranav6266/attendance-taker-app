@@ -147,6 +147,26 @@ class FirestoreRepository {
             .await()
     }
 
+    suspend fun updateStudentStreaks(updates: Map<String, Pair<Int, Long>>) {
+        try {
+            val batch = db.batch()
+            for ((studentId, data) in updates) {
+                val (newStreak, newDate) = data
+                val ref = studentsRef.document(studentId)
+                batch.update(ref,
+                    mapOf(
+                        "current_streak" to newStreak,
+                        "last_attended_date" to newDate
+                    )
+                )
+            }
+            batch.commit().await()
+            Log.d("FirestoreRepo", "Updated streaks for ${updates.size} students")
+        } catch (e: Exception) {
+            Log.e("FirestoreRepo", "Error updating streaks", e)
+        }
+    }
+
     suspend fun finalizeLog(dateId: String) {
         try {
             logsRef.document(dateId)
