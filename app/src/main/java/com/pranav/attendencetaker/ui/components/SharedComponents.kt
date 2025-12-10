@@ -39,23 +39,23 @@ import com.pranav.attendencetaker.ui.theme.DuoYellow
 @Composable
 fun getCardFaceColor(): Color {
     // Soft Dark Gray for Dark Mode, White for Light Mode
-    return if (isSystemInDarkTheme()) Color(0xFF252525) else Color.White
+    return if (isAppInDarkTheme()) Color(0xFF252525) else Color.White
 }
 
 @Composable
 fun getShadowColor(): Color {
     // Darker Black for Dark Mode shadow, Light Gray for Light Mode
-    return if (isSystemInDarkTheme()) Color(0xFF111111) else Color(0xFFE5E5E5)
+    return if (isAppInDarkTheme()) Color(0xFF111111) else Color(0xFFE5E5E5)
 }
 
 @Composable
 fun getTextColor(): Color {
-    return if (isSystemInDarkTheme()) Color(0xFFEEEEEE) else Color(0xFF4B4B4B)
+    return if (isAppInDarkTheme()) Color(0xFFEEEEEE) else Color(0xFF4B4B4B)
 }
 
 @Composable
 fun getSubTextColor(): Color {
-    return if (isSystemInDarkTheme()) Color(0xFFAAAAAA) else Color.Gray
+    return if (isAppInDarkTheme()) Color(0xFFAAAAAA) else Color.Gray
 }
 
 // --- ANIMATED STREAK FIRE ---
@@ -222,7 +222,7 @@ fun StatBadge(count: Int, label: String, color: Color) {
 // --- UTILS ---
 @Composable
 fun DotPatternBackground() {
-    val dotColor = if(isSystemInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f)
+    val dotColor = if(isAppInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val dotRadius = 2.dp.toPx()
         val spacing = 40.dp.toPx()
@@ -250,4 +250,13 @@ fun getBeltColor(belt: String): Color {
         "black" -> Color.Black
         else -> Color.Gray
     }
+}
+
+// Add to app/src/main/java/com/pranav/attendencetaker/ui/components/SharedComponents.kt
+
+@Composable
+fun isAppInDarkTheme(): Boolean {
+    // If the background is NOT white, we are in Dark Mode 
+    // (since your Light Theme uses Color.White)
+    return MaterialTheme.colorScheme.background != Color.White
 }

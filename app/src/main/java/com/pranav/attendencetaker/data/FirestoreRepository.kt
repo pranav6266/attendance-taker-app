@@ -6,6 +6,7 @@ import com.google.firebase.firestore.SetOptions
 import com.pranav.attendencetaker.data.model.AttendanceStatus
 import com.pranav.attendencetaker.data.model.DailyLog
 import com.pranav.attendencetaker.data.model.Student
+import com.pranav.attendencetaker.domain.CalculateStreakUseCase
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -28,7 +29,7 @@ class FirestoreRepository {
             .orderBy("name")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error) // Close the flow on error
+                    close(error)
                     return@addSnapshotListener
                 }
 
@@ -38,11 +39,9 @@ class FirestoreRepository {
                             id = doc.id
                         }
                     }
-                    trySend(students) // Send the new list to the UI
+                    trySend(students)
                 }
             }
-
-        // This block runs when the UI stops listening (e.g., screen closed)
         awaitClose { listener.remove() }
     }
 
@@ -93,7 +92,6 @@ class FirestoreRepository {
 
     suspend fun deleteStudent(studentId: String): Boolean {
         return try {
-            // Soft delete by setting is_active to false
             studentsRef.document(studentId)
                 .update("is_active", false)
                 .await()
@@ -174,24 +172,48 @@ class FirestoreRepository {
             .await()
     }
 
-    suspend fun updateStudentStreaks(updates: Map<String, Pair<Int, Long>>) {
-        try {
-            val batch = db.batch()
-            for ((studentId, data) in updates) {
-                val (newStreak, newDate) = data
-                val ref = studentsRef.document(studentId)
-                batch.update(ref,
-                    mapOf(
-                        "current_streak" to newStreak,
-                        "last_attended_date" to newDate
-                    )
-                )
+    // --- STREAK RECALCULATION (FIX) ---
+    suspend fun recalculateStreaks(students: List<Student>): List<Student> {
+        val calculateStreak = CalculateStreakUseCase()
+        val allLogs = getAllLogs() // Fetch history once
+        val batch = db.batch()
+        var batchCount = 0
+
+        // Create a mutable copy of the list to return updated values to UI immediately
+        val updatedStudentList = students.map { it.copy() }.toMutableList()
+
+        updatedStudentList.forEachIndexed { index, student ->
+            // 1. Collect all dates this student was present/late
+            val attendedDates = allLogs.filter { log ->
+                val status = log.attendance[student.id]
+                status == AttendanceStatus.PRESENT || status == AttendanceStatus.LATE
+            }.map { it.date }
+
+            // 2. Calculate true streak
+            val newStreak = calculateStreak(attendedDates)
+
+            // 3. If different from Firestore, queue update
+            if (newStreak != student.currentStreak) {
+                val ref = studentsRef.document(student.id)
+                batch.update(ref, "current_streak", newStreak)
+                batchCount++
+
+                // Update local object so UI reflects it immediately
+                updatedStudentList[index].currentStreak = newStreak
             }
-            batch.commit().await()
-            Log.d("FirestoreRepo", "Updated streaks for ${updates.size} students")
-        } catch (e: Exception) {
-            Log.e("FirestoreRepo", "Error updating streaks", e)
         }
+
+        // 4. Commit updates if needed
+        if (batchCount > 0) {
+            try {
+                batch.commit().await()
+                Log.d("FirestoreRepo", "Corrected streaks for $batchCount students")
+            } catch (e: Exception) {
+                Log.e("FirestoreRepo", "Error committing streak corrections", e)
+            }
+        }
+
+        return updatedStudentList
     }
 
     suspend fun finalizeLog(dateId: String) {

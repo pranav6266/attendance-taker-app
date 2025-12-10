@@ -18,7 +18,6 @@ import java.util.Stack
 class HomeViewModel : ViewModel() {
 
     private val repository = FirestoreRepository()
-    private val calculateStreak = com.pranav.attendencetaker.domain.CalculateStreakUseCase()
     private var allCachedStudents: List<Student> = emptyList()
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -31,7 +30,6 @@ class HomeViewModel : ViewModel() {
         loadSession()
     }
 
-    // Called when user returns to screen (e.g., from Details) to refresh finalized status
     fun refresh() {
         loadSession()
     }
@@ -40,34 +38,45 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            val allStudents = repository.getActiveStudents()
-            allCachedStudents = allStudents
-            val todayLog = repository.getTodayLog()
+            try {
+                // 1. Fetch Students
+                val initialStudents = repository.getActiveStudents()
 
-            // Populate local map with existing data
-            if (todayLog != null) {
-                _attendanceMap.putAll(todayLog.attendance)
-            }
+                // 2. RECALCULATE STREAKS (The Fix)
+                // This ensures streaks are always in sync with existing logs, even if you deleted one.
+                val correctedStudents = repository.recalculateStreaks(initialStudents)
+                allCachedStudents = correctedStudents
 
-            val remainingStudents = if (todayLog != null) {
-                allStudents.filter { student ->
-                    !todayLog.attendance.containsKey(student.id)
+                // 3. Fetch Today's Log
+                val todayLog = repository.getTodayLog()
+
+                // 4. Populate Map
+                if (todayLog != null) {
+                    _attendanceMap.putAll(todayLog.attendance)
                 }
-            } else {
-                allStudents
-            }
 
-            val currentLog = getCurrentLogObj(todayLog?.finalized == true)
+                val remainingStudents = if (todayLog != null) {
+                    correctedStudents.filter { student ->
+                        !todayLog.attendance.containsKey(student.id)
+                    }
+                } else {
+                    correctedStudents
+                }
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    studentsQueue = remainingStudents,
-                    totalCount = allStudents.size,
-                    progress = calculateProgress(allStudents.size, remainingStudents.size),
-                    isAttendanceFinalized = todayLog?.finalized == true,
-                    dailyLog = currentLog
-                )
+                val currentLog = getCurrentLogObj(todayLog?.finalized == true)
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        studentsQueue = remainingStudents,
+                        totalCount = correctedStudents.size,
+                        progress = calculateProgress(correctedStudents.size, remainingStudents.size),
+                        isAttendanceFinalized = todayLog?.finalized == true,
+                        dailyLog = currentLog
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -112,30 +121,16 @@ class HomeViewModel : ViewModel() {
     private fun saveToBackend() {
         viewModelScope.launch {
             try {
-                // 1. Save the Daily Log (Existing logic)
+                // 1. Save Today's Log
                 repository.saveAttendanceBatch(
                     attendanceMap = _attendanceMap,
                     focusOfTheDay = "Regular Class"
                 )
 
-                // 2. NEW: Calculate and Save Streaks
-                val streakUpdates = mutableMapOf<String, Pair<Int, Long>>()
-                val now = System.currentTimeMillis()
-
-                // Filter for students who are PRESENT or LATE
-                _attendanceMap.filter {
-                    it.value == AttendanceStatus.PRESENT || it.value == AttendanceStatus.LATE
-                }.forEach { (studentId, _) ->
-                    val student = allCachedStudents.find { it.id == studentId }
-                    if (student != null) {
-                        val newStreak = calculateStreak(student.currentStreak, student.lastAttendedDate)
-                        streakUpdates[studentId] = Pair(newStreak, now)
-                    }
-                }
-
-                if (streakUpdates.isNotEmpty()) {
-                    repository.updateStudentStreaks(streakUpdates)
-                }
+                // 2. Recalculate streaks again to include today's new data
+                // This updates the UI and Firestore with the new streaks including today
+                val updatedStudents = repository.recalculateStreaks(allCachedStudents)
+                allCachedStudents = updatedStudents // Update local cache
 
                 Log.d("HomeViewModel", "Auto-saved log and updated streaks")
 
@@ -155,7 +150,7 @@ class HomeViewModel : ViewModel() {
         return DailyLog(
             id = repository.getTodayId(),
             date = Date(),
-            attendance = _attendanceMap.toMap(), // Pass copy of map
+            attendance = _attendanceMap.toMap(),
             finalized = isFinalized
         )
     }

@@ -1,44 +1,45 @@
 package com.pranav.attendencetaker.domain
 
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
+import java.util.Date
 
 class CalculateStreakUseCase {
 
     /**
-     * Calculates the new streak.
-     * @param currentStreak The value currently stored in Firestore for the student.
-     * @param lastAttendanceTimestamp The 'lastAttended' timestamp (Long) from Firestore.
-     * @return The integer value of the NEW streak to be saved.
+     * Calculates the streak dynamically based on the history of attended dates.
+     * @param attendedDates List of all Dates the student was marked PRESENT or LATE.
+     * @return The calculated streak count.
      */
-    operator fun invoke(currentStreak: Int, lastAttendanceTimestamp: Long?): Int {
-        // Case 1: Student has never attended before. Start Streak at 1.
-        if (lastAttendanceTimestamp == null || lastAttendanceTimestamp == 0L) {
-            return 1
-        }
+    operator fun invoke(attendedDates: List<Date>): Int {
+        if (attendedDates.isEmpty()) return 0
 
-        // Convert the Firestore timestamp (Long) to a local Date object
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now(zoneId)
-        val lastDate = Instant.ofEpochMilli(lastAttendanceTimestamp)
-            .atZone(zoneId)
-            .toLocalDate()
 
-        // Logic to determine the new streak
-        return when {
-            // Case 2: Already attended today?
-            // (e.g., clicked button twice). Do NOT increment. Return existing.
-            lastDate.isEqual(today) -> currentStreak
+        // 1. Convert to LocalDate, remove duplicates, and sort newest first
+        val sortedDates = attendedDates
+            .map { it.toInstant().atZone(zoneId).toLocalDate() }
+            .distinct()
+            .sortedDescending()
 
-            // Case 3: Attended Yesterday?
-            // The difference between today and last date is exactly 1 day. Increment!
-            ChronoUnit.DAYS.between(lastDate, today) == 1L -> currentStreak + 1
+        var streak = 0
 
-            // Case 4: Missed a day (or more)?
-            // Streak breaks. Reset to 1 (starting today).
-            else -> 1
+        // 2. Determine where to start counting
+        // If they attended TODAY, we start counting from Today.
+        // If they haven't attended Today yet, we check Yesterday (streak is still alive).
+        var checkDate = if (sortedDates.contains(today)) {
+            today
+        } else {
+            today.minusDays(1)
         }
+
+        // 3. Loop backwards checking for consecutive days
+        while (sortedDates.contains(checkDate)) {
+            streak++
+            checkDate = checkDate.minusDays(1)
+        }
+
+        return streak
     }
 }

@@ -227,7 +227,7 @@ fun DuoAttendanceRow(
                 .border(2.dp, shadowColor, RoundedCornerShape(16.dp)).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(if(isSystemInDarkTheme()) Color(0xFF333333) else Color(0xFFF7F7F7), CircleShape), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(if(isAppInDarkTheme()) Color(0xFF333333) else Color(0xFFF7F7F7), CircleShape), contentAlignment = Alignment.Center) {
                 Text(student.name.take(1), fontWeight = FontWeight.Bold, color = Color.Gray)
             }
             Spacer(modifier = Modifier.width(16.dp))
